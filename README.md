@@ -27,9 +27,10 @@ will not work on Windows based machines however.
 Step 1:
 
 ```
-git clone https://github.com/openruko/rukorun.git rukorun  
+git clone https://github.com/openruko/rukorun.git rukorun
 cd rukorun
-npm install .
+
+make init
 ```
 
 Step 2:
