@@ -1,18 +1,19 @@
 var net = require('net');
+var Path = require('path');
 var cp = require('child_process');
 var pty = require('pty.js');
 var async = require('async');
-var ioSocket = net.createConnection('/root/sockets/io.sock');
-var commandSocket = net.createConnection('/root/sockets/command.sock');
 
-commandSocket.on('error', function(err) {
-  console.dir(err);
-  throw err;
-});
+var socketPath = process.argv[2];
 
-ioSocket.on('error', function(err) {
-  console.dir(err);
-  throw err;
+var ioSocket = net.createConnection(Path.join(socketPath, 'io.sock'));
+var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
+
+[commandSocket, ioSocket].forEach(function(socket){
+  socket.on('error', function(err) {
+    console.dir(err);
+    throw err;
+  });
 });
 
 connectToServer();
@@ -37,7 +38,6 @@ function connectToServer() {
     },
     processCommands]
   );
-
 }
 
 function processCommands() {
