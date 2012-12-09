@@ -1,5 +1,5 @@
 #!/bin/bash
 
-/usr/bin/env node /root/ps-run/rukorun/run.js /root/sockets/ >/root/ps-run/out.err 2>&1 
+/usr/bin/env node /root/ps-run/rukorun/run.js /root/sockets/ /app >/root/ps-run/out.err 2>&1 
 echo "done $?" >>/root/ps-run/out.err 2>&1 
 
