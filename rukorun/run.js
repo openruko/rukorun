@@ -67,7 +67,7 @@ function processCommands() {
       }
 
       commandSocket.write('Stopping all processes with SIGTERM\n');
-      //inst.kill('SIGTERM');
+      inst.kill('SIGTERM');
 
       setTimeout(function(){
         commandSocket.write('Error R12 (Exit timeout) -> At least one process failed to exit within 10 seconds of SIGTERM\n');
