@@ -3,8 +3,11 @@ var Path = require('path');
 var cp = require('child_process');
 var pty = require('pty.js');
 var async = require('async');
+var _ = require('underscore');
 
 var socketPath = process.argv[2];
+var cwd = process.argv[3];
+var killTimeout = process.argv[4];
 
 var ioSocket = net.createConnection(Path.join(socketPath, 'io.sock'));
 var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
@@ -16,61 +19,62 @@ var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
   });
 });
 
-connectToServer();
-
-function connectToServer() {
-
-  async.series([
-    function(cb) {
-      var connected = 0;
-      ioSocket.on('connect', function() {
-        connected++;
-        if(connected == 2) {
-          cb();
-        }
-      });
-      commandSocket.on('connect', function() {
-        connected++;
-        if(connected == 2) {
-          cb();
-        }
-      });
-    },
-    processCommands]
-  );
-}
+async.parallel([
+  function(cb){
+    ioSocket.on('connect', cb);
+  },
+  function(cb){
+    commandSocket.on('connect', cb);
+  }
+], processCommands);
 
 function processCommands() {
 
+  var inst;
   commandSocket.on('data', function(data) {
     var payload = JSON.parse(data);
-    var inst;
+    payload.args = payload.args || [];
 
-    // handling git push and receive
-    if(payload.type === 'do' && payload.attached && !payload.pty) {
-      commandSocket.write('status: spawning\n');
-      inst = spawn(payload, ioSocket, commandSocket);
-    }
+    if(payload.type === 'do') {
+      var cmd = payload.command + ' ' + payload.args.join(' ');
+      commandSocket.write('Starting process with command `' + cmd + '`\n');
 
-    // executing something via rendezvous 
-    if(payload.type === 'do' && payload.attached && payload.pty) {
-      commandSocket.write('status: spawning\n');
-      inst = spawnPty(payload, ioSocket, commandSocket);
-    } 
+      // Use bash to bootstrap for PATH population and PORT interpolation
+      var origArgs = payload.args;
+      origArgs.unshift(payload.command);
+      origArgs.unshift('exec');
 
-    // normal dyno running
-    if(payload.type === 'do' && !payload.attached) {
-      commandSocket.write('status: spawning');
-      inst = spawn(payload, ioSocket, commandSocket);
-    } 
+      payload.command = '/bin/bash';
+      payload.args = ['-c', origArgs.join(' ')];
 
-    if(payload.type === 'exit') {
-      if(inst) {
-        inst.kill('SIGKILL');
-        process.exit(0);
+      if(payload.pty) {
+        inst = spawnPty(payload, ioSocket, commandSocket);
+      }else{
+        inst = spawn(payload, ioSocket, commandSocket);
       }
+
+      inst.on('exit', function(code) {
+        // pty.js does not forward the exit code
+        // https://github.com/chjj/pty.js/issues/28
+        code = code || 0;
+        commandSocket.write('Process exited with status ' + code + '\n');
+        process.exit(code);
+      });
+    } else if(payload.type === 'exit') {
+
+      if(!inst) {
+        throw new Error('WTF try to exit a non existing inst');
+      }
+
+      commandSocket.write('Stopping all processes with SIGTERM\n');
+      //inst.kill('SIGTERM');
+
+      setTimeout(function(){
+        commandSocket.write('Error R12 (Exit timeout) -> At least one process failed to exit within 10 seconds of SIGTERM\n');
+        commandSocket.write('Stopping all processes with SIGKILL\n');
+        inst.kill('SIGKILL');
+      }, killTimeout || 10000);
     }
-    
   });
 }
 
@@ -78,77 +82,40 @@ function spawnPty(payload, outputSocket, commandSocket) {
 
   // pty.js doesnt support uid/gid - for running as less priv user
   // so we launch a pty and inherit the tty for normal cp spawn
+  // https://github.com/chjj/pty.js/issues/23
   payload.args.unshift(payload.command);
-  payload.args.unshift('/root/ps-run/runas.js');
-  var realCommand = '/root/ps-run/node';
-
+  payload.args.unshift(Path.join(__dirname, 'runas.js'));
+  var realCommand = 'node';
 
   // TODO pass over TERM, cols, rows etc..
   var term = pty.spawn(realCommand, payload.args || [], {
     cols: 80,
     rows: 30,
-    cwd: '/app',
-    env: {
+    cwd: cwd,
+    env: _({
       TERM: 'xterm'
-    }
+    }).defaults(payload.env_vars)
   });
 
-
-  term.on('data', function(data) {
-    outputSocket.write(data);
-  });
-
-  outputSocket.on('data', function(data) {
-    term.write(data);
-  });
-
-  term.on('exit', function(code) {
-    commandSocket.write('status: exit - ' + code + '\n');
-    outputSocket.destroySoon();
-  });
+  term.pipe(outputSocket, { end: false });
+  outputSocket.pipe(term, { end: false });
 
   return term;
 }
 
 function spawn(payload, outputSocket, commandSocket, bashIt) {
 
-  // Use bash to bootstrap for PATH population and PORT interpolation
-  if(true) {
-    var origArgs = payload.args;
-    origArgs.unshift(payload.command);
-    origArgs.unshift('exec');
-
-    payload.command = '/bin/bash';
-    payload.args = ['-c', origArgs.join(' ')];
-  }
-   
-  if(!payload.attached) {
-    outputSocket.write(JSON.stringify(payload.env_vars));
-  }
-
   var inst = cp.spawn(payload.command, payload.args, 
                       {
                         env: payload.env_vars,
-                        cwd: '/app',
+                        cwd: cwd,
                         uid: 1666,
                         gid: 666
                       });
 
-  inst.stdout.on('data', function(data) {
-    outputSocket.write(data);
-  });
-  inst.stderr.on('data', function(data) {
-    outputSocket.write(data);
-  });
-
-  outputSocket.on('data', function(data) {
-    inst.stdin.write(data);
-  });
-
-  inst.on('close', function(code) {
-    commandSocket.write('status: exit - ' + code + '\n');
-    outputSocket.destroySoon();
-  });
+  inst.stdout.pipe(outputSocket, { end: false });
+  inst.stderr.pipe(outputSocket, { end: false });
+  outputSocket.pipe(inst.stdin, { end: false });
 
   return inst;
 }

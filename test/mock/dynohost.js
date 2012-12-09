@@ -4,6 +4,8 @@ var fs = require('fs');
 var net = require('net');
 var rimraf = require('rimraf');
 var mkdirp = require('mkdirp');
+var async = require('async');
+var _ = require('underscore');
 
 exports.buildSocketServers = function(path, cb){
   var em = new EventEmitter();
@@ -13,15 +15,10 @@ exports.buildSocketServers = function(path, cb){
     mkdirp(path, function(err){
       if(err) return cb(err);
 
-      var commandServer = buildSocketServer('command');
-      em.emit('commandServer', ioServer);
-      var ioServer = buildSocketServer('io');
-      em.emit('ioServer', ioServer);
-
-      [commandServer, ioServer].forEach(function(server){
-        server.on('connection', handleConnection);
-        server.on('error', cb);
-      });
+      var servers = {
+        command: buildSocketServer('command'),
+        io: buildSocketServer('io')
+      };
 
       function buildSocketServer(prefix) {
         var socketDir=Path.join(path);
@@ -34,13 +31,23 @@ exports.buildSocketServers = function(path, cb){
         return server;
       }
 
-      var connCount = 0;
-      function handleConnection(socketName) {
-        connCount++;
-        if(connCount === 2) {
-          cb(null, commandServer, ioServer);
+      _(servers).forEach(function(server, name){
+        em.emit(name, server);
+        server.on('error', cb);
+      });
+
+      async.parallel([
+        function(cb){
+          servers.command.on('connection', function(socket){
+            cb(null, socket);
+          });
+        },
+        function(cb){
+          servers.io.on('connection', function(socket){
+            cb(null, socket);
+          });
         }
-      }
+      ], cb);
     });
   });
 
