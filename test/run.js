@@ -136,6 +136,7 @@ describe('rukorun', function(){
           }).defaults(payload)));
 
           command.on('data', function(data){ commands+= data; });
+          io.pipe(process.stdout, {end: false});
 
           io.once('data', function(data){
             done();
@@ -168,6 +169,8 @@ describe('rukorun', function(){
           }).defaults(payload)));
 
           command.on('data', function(data){ commands+= data; });
+
+          io.pipe(process.stdout, {end: false});
 
           io.once('data', function(data){
             done();
