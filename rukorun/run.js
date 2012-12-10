@@ -37,7 +37,9 @@ function processCommands() {
 
     if(payload.type === 'do') {
       var cmd = payload.command + ' ' + payload.args.join(' ');
-      commandSocket.write('Starting process with command `' + cmd + '`\n');
+      sendToDynohost({
+        message: 'Starting process with command `' + cmd + '`'
+      });
 
       // Use bash to bootstrap for PATH population and PORT interpolation
       var origArgs = payload.args;
@@ -57,7 +59,12 @@ function processCommands() {
         // pty.js does not forward the exit code
         // https://github.com/chjj/pty.js/issues/28
         code = code || 0;
-        commandSocket.write('Process exited with status ' + code + '\n');
+        sendToDynohost({
+          type: 'exit',
+          code: code,
+          message: 'Process exited with status ' + code
+        });
+
         process.exit(code);
       });
     } else if(payload.type === 'exit') {
@@ -66,22 +73,31 @@ function processCommands() {
         throw new Error('WTF try to exit a non existing inst');
       }
 
-      commandSocket.write('Stopping all processes with SIGTERM\n');
+      sendToDynohost({
+        message: 'Stopping all processes with SIGTERM' 
+      });
       inst.kill('SIGTERM');
 
       setTimeout(function(){
-        commandSocket.write('Error R12 (Exit timeout) -> At least one process failed to exit within 10 seconds of SIGTERM\n');
-        commandSocket.write('Stopping all processes with SIGKILL\n');
+        sendToDynohost({
+          message: ['Error R12 (Exit timeout) -> At least one process failed to exit within 10 seconds of SIGTERM',
+            'Stopping all processes with SIGKILL'].join('\n')
+        });
         inst.kill('SIGKILL');
       }, killTimeout || 10000);
     }
   });
+
+  function sendToDynohost(object){
+    commandSocket.write(JSON.stringify(object) + '\n');
+  }
 }
 
+// Used when `openruko run bash`
 function spawnPty(payload, outputSocket, commandSocket) {
 
   // TODO pass over TERM, cols, rows etc..
-  var term = pty.spawn(payload.command, payload.args || [], {
+  var term = pty.spawn(payload.command, payload.args, {
     cols: 80,
     rows: 30,
     cwd: cwd,
@@ -98,15 +114,15 @@ function spawnPty(payload, outputSocket, commandSocket) {
   return term;
 }
 
-function spawn(payload, outputSocket, commandSocket, bashIt) {
+// Used when running application dynos and build dynos
+function spawn(payload, outputSocket, commandSocket) {
 
-  var inst = cp.spawn(payload.command, payload.args, 
-                      {
-                        env: payload.env_vars,
-                        cwd: cwd,
-                        uid: 1666,
-                        gid: 666
-                      });
+  var inst = cp.spawn(payload.command, payload.args, {
+    cwd: cwd,
+    uid: 1666,
+    gid: 666,
+    env: payload.env_vars
+  });
 
   inst.stdout.pipe(outputSocket, { end: false });
   inst.stderr.pipe(outputSocket, { end: false });

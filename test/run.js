@@ -80,7 +80,7 @@ describe('rukorun', function(){
             expect(code).to.be.equal(0);
 
             setTimeout(function(){
-              expect(commands).to.include('Starting process with command `echo "hello $KEY1"`');
+              expect(commands).to.include('Starting process with command `echo \\"hello $KEY1\\"`');
               expect(commands).to.include('Process exited with status 0');
               done();
             }, 20);
