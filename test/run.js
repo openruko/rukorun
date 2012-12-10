@@ -40,7 +40,7 @@ describe('rukorun', function(){
 
   afterEach(function(done){
     child.kill('SIGTERM');
-    done();
+    setTimeout(done, 200);
   });
 
   _({
@@ -130,7 +130,8 @@ describe('rukorun', function(){
             command: 'node',
             args: ['fixture/server.js'],
             env_vars: {
-              PORT: 1234
+              PORT: 1234,
+              PATH: process.env.PATH
             }
           }).defaults(payload)));
 
@@ -161,7 +162,8 @@ describe('rukorun', function(){
             command: 'node',
             args: ['fixture/chuck-norris.js'],
             env_vars: {
-              PORT: 1234
+              PORT: 1234,
+              PATH: process.env.PATH
             }
           }).defaults(payload)));
 

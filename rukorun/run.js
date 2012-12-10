@@ -80,18 +80,13 @@ function processCommands() {
 
 function spawnPty(payload, outputSocket, commandSocket) {
 
-  // pty.js doesnt support uid/gid - for running as less priv user
-  // so we launch a pty and inherit the tty for normal cp spawn
-  // https://github.com/chjj/pty.js/issues/23
-  payload.args.unshift(payload.command);
-  payload.args.unshift(Path.join(__dirname, 'runas.js'));
-  var realCommand = 'node';
-
   // TODO pass over TERM, cols, rows etc..
-  var term = pty.spawn(realCommand, payload.args || [], {
+  var term = pty.spawn(payload.command, payload.args || [], {
     cols: 80,
     rows: 30,
     cwd: cwd,
+    uid: 1666,
+    gid: 666,
     env: _({
       TERM: 'xterm'
     }).defaults(payload.env_vars)
