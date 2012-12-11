@@ -67,7 +67,7 @@ function processCommands() {
 
         process.exit(code);
       });
-    } else if(payload.type === 'exit') {
+    } else if(payload.type === 'stop') {
 
       if(!inst) {
         throw new Error('WTF try to exit a non existing inst');
