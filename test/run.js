@@ -143,9 +143,9 @@ describe('rukorun', function(){
           });
         });
 
-        it('should kill process with SIGTERM when sending `exit`', function(done){
+        it('should kill process with SIGTERM when sending `stop`', function(done){
           command.write(JSON.stringify({
-            type: 'exit'
+            type: 'stop'
           }));
 
           child.on('exit', function(code){
@@ -179,7 +179,7 @@ describe('rukorun', function(){
 
         it('should kill process with SIGKILL when sending `exit`', function(done){
           command.write(JSON.stringify({
-            type: 'exit'
+            type: 'stop'
           }));
 
           child.on('exit', function(code){
