@@ -8,9 +8,9 @@ var checkBind = require('./checkBind');
 
 var socketPath = process.argv[2];
 var cwd = process.argv[3];
-var killTimeout = process.argv[4];
-var checkBindInterval = process.argv[5];
-var bootTimeout = process.argv[6];
+var killTimeout = process.argv[4] || 10000;
+var checkBindInterval = process.argv[5] || 1000;
+var bootTimeout = process.argv[6] || 60000;
 
 var ioSocket = net.createConnection(Path.join(socketPath, 'io.sock'));
 var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
@@ -58,7 +58,7 @@ function processCommands() {
         inst = spawn(payload, ioSocket, commandSocket);
       }
 
-      if(payload.env_vars.PORT){
+      if(!payload.pty && !payload.attached){
         var isBound = false;
 
         var bootTimeoutId = setTimeout(function(){
@@ -125,7 +125,7 @@ function processCommands() {
         });
 
         kill('SIGKILL');
-      }, killTimeout || 10000);
+      }, killTimeout);
     }
   });
 

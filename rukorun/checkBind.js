@@ -24,7 +24,7 @@ module.exports = function(wantedPort, cb){
       if(host !== '0.0.0.0') {
         return cb(new Error('Error R11 (Bad bind) -> Process bound to host ' + host + ', should be 0.0.0.0'));
       }
-      if(port !== wantedPort){
+      if(+port !== +wantedPort){
         return cb(new Error('Error R11 (Bad bind) -> Process bound to port ' + port + ', should be ' + wantedPort + ' (see environment variable PORT)'));
       }
       cb(null, {
