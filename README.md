@@ -40,9 +40,7 @@ Set RUKORUN_PATH env var in dynohost, so the correct path is mounted on the dyno
 
 ## Help and Todo 
 
-* Monitor port binding for 'up' status.
-
-* can pty.js be modified to not need a runas.js proxy?
+Take a look at the issues :)
 
 ## License
 
