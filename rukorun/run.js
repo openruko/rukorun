@@ -4,13 +4,10 @@ var cp = require('child_process');
 var pty = require('pty.js');
 var async = require('async');
 var _ = require('underscore');
-var checkBind = require('./checkBind');
 
 var socketPath = process.argv[2];
 var cwd = process.argv[3];
-var killTimeout = process.argv[4] || 10000;
-var checkBindInterval = process.argv[5] || 1000;
-var bootTimeout = process.argv[6] || 60000;
+var killTimeout = process.argv[4];
 
 var ioSocket = net.createConnection(Path.join(socketPath, 'io.sock'));
 var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
@@ -58,47 +55,6 @@ function processCommands() {
         inst = spawn(payload, ioSocket, commandSocket);
       }
 
-      if(!payload.pty && !payload.attached){
-        var isBound = false;
-
-        var bootTimeoutId = setTimeout(function(){
-          if(isBound) return;
-
-          sendToDynohost({
-            message: 'Error R10 (Boot timeout) -> Web process failed to bind to $PORT within 60 seconds of launch'
-          });
-          return kill('SIGKILL');
-        }, bootTimeout);
-
-        async.until(function(){
-          return isBound;
-        }, function(cb){
-          checkBind(payload.env_vars.PORT, function(err, host){
-            if(err) return cb(err);
-
-            if(host){
-              return isBound = true;
-            }
-
-            // check every 1s
-            setTimeout(cb, checkBindInterval)
-          });
-        }, function(err){
-          if(err){
-            sendToDynohost({
-              message: err.message
-            });
-            return kill('SIGKILL');
-          }
-
-          sendToDynohost({
-            type: 'bound'
-          });
-
-          clearTimeout(bootTimeoutId);
-        });
-      }
-
       inst.on('exit', function(code) {
         // pty.js does not forward the exit code
         // https://github.com/chjj/pty.js/issues/28
@@ -117,27 +73,23 @@ function processCommands() {
         throw new Error('WTF try to exit a non existing inst');
       }
 
-      kill('SIGTERM');
+      sendToDynohost({
+        message: 'Stopping all processes with SIGTERM' 
+      });
+      inst.kill('SIGTERM');
 
       setTimeout(function(){
         sendToDynohost({
-          message: 'Error R12 (Exit timeout) -> At least one process failed to exit within 10 seconds of SIGTERM',
+          message: ['Error R12 (Exit timeout) -> At least one process failed to exit within 10 seconds of SIGTERM',
+            'Stopping all processes with SIGKILL'].join('\n')
         });
-
-        kill('SIGKILL');
-      }, killTimeout);
+        inst.kill('SIGKILL');
+      }, killTimeout || 10000);
     }
   });
 
   function sendToDynohost(object){
     commandSocket.write(JSON.stringify(object) + '\n');
-  }
-
-  function kill(signal){
-    sendToDynohost({
-      message: 'Stopping all processes with ' + signal
-    });
-    inst.kill(signal);
   }
 }
 

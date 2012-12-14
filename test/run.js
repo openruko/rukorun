@@ -23,9 +23,6 @@ describe('rukorun', function(){
       if(err) return done(err);
       command = arr[0];
       io = arr[1];
-
-      io.pipe(process.stdout, {end: false});
-      command.pipe(process.stdout, {end: false});
       done();
     });
 
@@ -34,18 +31,16 @@ describe('rukorun', function(){
         Path.join(__dirname, '../rukorun/run.js'),
         pathTest,
         __dirname,
-        100,
-        10,
-        400
+        200
       ]);
-      child.stdout.pipe(process.stdout, {end: false});
-      child.stderr.pipe(process.stderr, {end: false});
+      child.stdout.pipe(process.stdout);
+      child.stderr.pipe(process.stderr);
     }, 20);
   });
 
   afterEach(function(done){
     child.kill('SIGTERM');
-    setTimeout(done, 20);
+    setTimeout(done, 200);
   });
 
   _({
@@ -127,150 +122,71 @@ describe('rukorun', function(){
           });
         });
       });
-    });
-  });
 
-  var webPayload = {
-    type: 'do',
-    attached: false,
-    pty: false,
-    command: 'node',
-    env_vars: {
-      PORT: 1337,
-      PATH: process.env.PATH
-    }
-  };
+      describe('when launching long running process', function(done){
+        var commands = "";
+        beforeEach(function(done){
+          command.write(JSON.stringify(_({
+            command: 'node',
+            args: ['fixture/server.js'],
+            env_vars: {
+              PORT: 1234,
+              PATH: process.env.PATH
+            }
+          }).defaults(payload)));
 
-  describe('when launching web process', function(done){
-    var commands = "";
-    beforeEach(function(done){
-      command.write(JSON.stringify(_({
-        args: ['fixture/server.js'],
-      }).defaults(webPayload)));
+          command.on('data', function(data){ commands+= data; });
+          io.pipe(process.stdout, {end: false});
 
-      command.on('data', function(data){ 
-        commands+= data; 
-        if(/{"type":"bound"}/.test(data)) done();
-      });
-    });
+          io.once('data', function(data){
+            done();
+          });
+        });
 
-    it('should kill process with SIGTERM when sending `stop`', function(done){
-      command.write(JSON.stringify({
-        type: 'stop'
-      }));
+        it('should kill process with SIGTERM when sending `stop`', function(done){
+          command.write(JSON.stringify({
+            type: 'stop'
+          }));
 
-      child.on('exit', function(code){
-        expect(commands).to.include('Stopping all processes with SIGTERM');
-        expect(commands).to.include('Process exited with status ');
-        done();
-      });
-    });
-  });
-
-  describe('when launching long booting process', function(done){
-    var commands = "";
-    beforeEach(function(done){
-      command.write(JSON.stringify(_({
-        args: ['fixture/setTimeout.js'],
-      }).defaults(webPayload)));
-
-      command.on('data', function(data){ commands+= data; });
-
-      io.on('data', function(data){
-        done();
-      });
-    });
-
-    it('should kill process with R10 if not started after bootTimeout', function(done){
-      beforeEach(function(done){
-        setTimeout(done, 20);
+          child.on('exit', function(code){
+            expect(commands).to.include('Stopping all processes with SIGTERM');
+            expect(commands).to.include('Process exited with status ');
+            done();
+          });
+        });
       });
 
-      child.on('exit', function(code){
-        expect(commands).to.include('Error R10 (Boot timeout) -> Web process failed to bind to $PORT within 60 seconds of launch');
-        expect(commands).to.include('Stopping all processes with SIGKILL');
-        done();
-      });
-    });
-  });
+      describe('when launching catching signals processes', function(done){
+        var commands ="";
+        beforeEach(function(done){
+          command.write(JSON.stringify(_({
+            command: 'node',
+            args: ['fixture/chuck-norris.js'],
+            env_vars: {
+              PORT: 1234,
+              PATH: process.env.PATH
+            }
+          }).defaults(payload)));
 
-  describe('when launching a web process with a bad port', function(done){
-    var commands = "";
-    beforeEach(function(done){
-      command.write(JSON.stringify(_({
-        args: ['fixture/badPort.js'],
-      }).defaults(webPayload)));
+          command.on('data', function(data){ commands+= data; });
 
-      command.on('data', function(data){ commands+= data; });
+          io.pipe(process.stdout, {end: false});
 
-      io.on('data', function(data){
-        done();
-      });
-    });
+          io.once('data', function(data){
+            done();
+          });
+        });
 
-    it('should kill process with R10 if not started after bootTimeout', function(done){
-      beforeEach(function(done){
-        setTimeout(done, 20);
-      });
+        it('should kill process with SIGKILL when sending `exit`', function(done){
+          command.write(JSON.stringify({
+            type: 'stop'
+          }));
 
-      child.on('exit', function(code){
-        expect(commands).to.include('Error R11 (Bad bind) -> Process bound to port 6666, should be 1337 (see environment variable PORT)');
-        expect(commands).to.include('Stopping all processes with SIGKILL');
-        done();
-      });
-    });
-  });
-
-  describe('when launching a web process with a bad host', function(done){
-    var commands = "";
-    beforeEach(function(done){
-      command.write(JSON.stringify(_({
-        args: ['fixture/badHost.js'],
-      }).defaults(webPayload)));
-
-      command.on('data', function(data){ commands+= data; });
-
-      io.on('data', function(data){
-        done();
-      });
-    });
-
-    it('should kill process with R10 if not started after bootTimeout', function(done){
-      beforeEach(function(done){
-        setTimeout(done, 20);
-      });
-
-      child.on('exit', function(code){
-        expect(commands).to.include('Error R11 (Bad bind) -> Process bound to host 1.0.0.127, should be 0.0.0.0');
-        expect(commands).to.include('Stopping all processes with SIGKILL');
-        done();
-      });
-    });
-  });
-
-
-  describe('when launching catching signals processes', function(done){
-    var commands ="";
-    beforeEach(function(done){
-      command.write(JSON.stringify(_({
-        args: ['fixture/chuck-norris.js'],
-      }).defaults(webPayload)));
-
-      command.on('data', function(data){ commands+= data; });
-
-      command.on('data', function(data){
-        if(/{"type":"bound"}/.test(data)) done();
-      });
-    });
-
-    it('should kill process with SIGKILL when sending `exit`', function(done){
-      command.write(JSON.stringify({
-        type: 'stop'
-      }));
-
-      child.on('exit', function(code){
-        expect(commands).to.include('Stopping all processes with SIGKILL');
-        done();
+          child.on('exit', function(code){
+            expect(commands).to.include('Stopping all processes with SIGKILL');
+            done();
+          });
+        });
       });
     });
   });
