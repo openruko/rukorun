@@ -12,7 +12,6 @@
   "license": "MIT",
   "dependencies": {
     "pty.js": "http://github.com/Marsup/pty.js/archive/set-uid-gid.tar.gz",
-    "pty.js": "~0.1.2",
     "async": "~0.1.22",
     "underscore": "~1.4.3"
   },
