@@ -74,7 +74,7 @@ function processCommands() {
       }
 
       sendToDynohost({
-        message: 'Stopping all processes with SIGTERM' 
+        message: 'Stopping all processes with SIGTERM'
       });
       inst.kill('SIGTERM');
 
@@ -87,6 +87,13 @@ function processCommands() {
       }, killTimeout || 10000);
     }
   });
+
+  // Keep track of the app's accumulated uptime in minutes
+  setInterval(function() {
+    sendToDynohost({
+      heartbeat: true
+    });
+  }, 60 * 1000);
 
   function sendToDynohost(object){
     commandSocket.write(JSON.stringify(object) + '\n');
