@@ -1,7 +1,6 @@
 # Rukorun - Runner inside dyno  (lxc-init replacement)
 [![Build Status](https://travis-ci.org/slotbox/rukorun.png)](https://travis-ci.org/slotbox/rukorun)
 
-
 ## Introduction
 
 Rukorun handles the execution of the job command within the dyno, it sets up 
