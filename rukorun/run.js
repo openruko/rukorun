@@ -12,6 +12,8 @@ var killTimeout = process.argv[4];
 var ioSocket = net.createConnection(Path.join(socketPath, 'io.sock'));
 var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
 
+var heartbeat_interval = process.env.HEARTBEAT_INTERVAL || 60 * 1000;
+
 [commandSocket, ioSocket].forEach(function(socket){
   socket.on('error', function(err) {
     console.dir(err);
@@ -93,7 +95,7 @@ function processCommands() {
     sendToDynohost({
       heartbeat: true
     });
-  }, 60 * 1000);
+  }, heartbeat_interval);
 
   function sendToDynohost(object){
     commandSocket.write(JSON.stringify(object) + '\n');
