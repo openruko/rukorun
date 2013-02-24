@@ -12,6 +12,7 @@ var killTimeout = process.argv[4];
 var ioSocket = net.createConnection(Path.join(socketPath, 'io.sock'));
 var commandSocket = net.createConnection(Path.join(socketPath, 'command.sock'));
 
+// Shorter heartbeats are useful for testing
 var heartbeat_interval = process.env.HEARTBEAT_INTERVAL || 60 * 1000;
 
 [commandSocket, ioSocket].forEach(function(socket){
@@ -57,6 +58,7 @@ function processCommands() {
         inst = spawn(payload, ioSocket, commandSocket);
       }
 
+      // If the spawned child process exits.
       inst.on('exit', function(code) {
         // pty.js does not forward the exit code
         // https://github.com/chjj/pty.js/issues/28
@@ -69,6 +71,8 @@ function processCommands() {
 
         process.exit(code);
       });
+
+    // If Rukorun is told to stop by Dynohost.
     } else if(payload.type === 'stop') {
 
       if(!inst) {
@@ -90,16 +94,6 @@ function processCommands() {
     }
   });
 
-  // Keep track of the app's accumulated uptime in minutes
-  setInterval(function() {
-    sendToDynohost({
-      heartbeat: true
-    });
-  }, heartbeat_interval);
-
-  function sendToDynohost(object){
-    commandSocket.write(JSON.stringify(object) + '\n');
-  }
 }
 
 // Used when `openruko run bash`
@@ -120,6 +114,8 @@ function spawnPty(payload, outputSocket, commandSocket) {
   term.pipe(outputSocket, { end: false });
   outputSocket.pipe(term, { end: false });
 
+  startHeartbeats();
+
   return term;
 }
 
@@ -137,5 +133,21 @@ function spawn(payload, outputSocket, commandSocket) {
   inst.stderr.pipe(outputSocket, { end: false });
   outputSocket.pipe(inst.stdin, { end: false });
 
+  startHeartbeats();
+
   return inst;
+}
+
+// Send data to the Dynohost
+function sendToDynohost(object){
+  commandSocket.write(JSON.stringify(object) + '\n');
+}
+
+// Keep track of the app's accumulated uptime in minutes
+function startHeartbeats(){
+  setInterval(function() {
+    sendToDynohost({
+      heartbeat: true
+    });
+  }, heartbeat_interval);
 }
