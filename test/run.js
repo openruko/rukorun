@@ -125,6 +125,7 @@ describe('rukorun', function(){
 
       describe('when launching long running process', function(done){
         var commands = "";
+        var heartbeats = 0;
         beforeEach(function(done){
           command.write(JSON.stringify(_({
             command: 'node',
@@ -154,6 +155,12 @@ describe('rukorun', function(){
             done();
           });
         });
+
+        it('should send heartbeats', function(done){
+          expect(commands).to.include('heartbeat');
+          done();
+        });
+
       });
 
       describe('when launching catching signals processes', function(done){

@@ -1,4 +1,5 @@
 # Rukorun - Runner inside dyno  (lxc-init replacement)
+[![Build Status](https://travis-ci.org/openruko/rukorun.png)](https://travis-ci.org/openruko/rukorun)
 
 ## Introduction
 

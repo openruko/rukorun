@@ -5,14 +5,13 @@
   "description": "internal dyno runner, similar to heroku's ps-run",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/.bin/mocha -R spec --grep \"$GREP\""
+    "test": "sudo env PATH=$PATH HEARTBEAT_INTERVAL=10 ./node_modules/.bin/mocha -R spec --grep \"$GREP\""
   },
   "repository": "",
   "author": "Matt Freeman matt@nonuby.com",
   "license": "MIT",
   "dependencies": {
     "pty.js": "http://github.com/Marsup/pty.js/archive/set-uid-gid.tar.gz",
-    "pty.js": "~0.1.2",
     "async": "~0.1.22",
     "underscore": "~1.4.3"
   },
