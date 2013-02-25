@@ -178,9 +178,11 @@ describe('rukorun', function(){
         });
 
         it('should kill process with SIGKILL when sending `exit`', function(done){
-          command.write(JSON.stringify({
-            type: 'stop'
-          }));
+          setTimeout(function(){
+            command.write(JSON.stringify({
+              type: 'stop'
+            }));
+          }, 100);
 
           child.on('exit', function(code){
             expect(commands).to.include('Stopping all processes with SIGKILL');
