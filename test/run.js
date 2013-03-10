@@ -158,6 +158,9 @@ describe('rukorun', function(){
 
         it('should send heartbeats', function(done){
           expect(commands).to.include('heartbeat');
+          command.write(JSON.stringify({
+            type: 'stop'
+          }));
           done();
         });
 
@@ -185,11 +188,9 @@ describe('rukorun', function(){
         });
 
         it('should kill process with SIGKILL when sending `exit`', function(done){
-          setTimeout(function(){
-            command.write(JSON.stringify({
-              type: 'stop'
-            }));
-          }, 100);
+          command.write(JSON.stringify({
+            type: 'stop'
+          }));
 
           child.on('exit', function(code){
             expect(commands).to.include('Stopping all processes with SIGKILL');
