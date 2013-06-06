@@ -50,7 +50,7 @@ function processCommands() {
       origArgs.unshift('exec');
 
       payload.command = '/bin/bash';
-      payload.args = ['-c', origArgs.join(' ')];
+      payload.args = ['--login', '-c', origArgs.join(' ')];
 
       if(payload.pty) {
         inst = spawnPty(payload, ioSocket, commandSocket);
@@ -98,7 +98,6 @@ function processCommands() {
 
 // Used when `openruko run bash`
 function spawnPty(payload, outputSocket, commandSocket) {
-
   // TODO pass over TERM, cols, rows etc..
   var term = pty.spawn(payload.command, payload.args, {
     cols: 80,
